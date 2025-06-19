@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+
+<body>
+    <h2>Clipboard Sync Client</h2>
+    <button onclick="readClipboard()">Send Clipboard</button>
+
+    <script>
+        const socket = new WebSocket('ws://localhost:8080');
+
+        socket.onopen = () => {
+            console.log('Connected to server');
+        };
+
+        socket.onmessage = async (event) => {
+            const text = event.data;
+            try {
+                await navigator.clipboard.writeText(text);
+                console.log('Clipboard updated from server:', text);
+            } catch (err) {
+                console.error('Clipboard write failed', err);
+            }
+        };
+
+        async function readClipboard() {
+            try {
+                const text = await navigator.clipboard.readText();
+                console.log('Sending clipboard:', text);
+                socket.send(text);
+            } catch (err) {
+                console.error('Clipboard read failed', err);
+            }
+        }
+    </script>
+</body>
+
+</html>
