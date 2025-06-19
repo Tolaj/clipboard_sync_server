@@ -1,7 +1,7 @@
 const http = require('http');
 const WebSocket = require('ws');
 
-const PORT = 4567;
+const PORT = process.env.PORT || 8080;
 
 // HTML Page served to browser clients
 const html = `
@@ -56,61 +56,61 @@ const html = `
 const clients = new Map(); // WebSocket -> role (clipboard or viewer)
 
 const server = http.createServer((req, res) => {
-    res.writeHead(200, { 'Content-Type': 'text/html' });
-    res.end(html);
+  res.writeHead(200, { 'Content-Type': 'text/html' });
+  res.end(html);
 });
 
 const wss = new WebSocket.Server({ noServer: true });
 
 server.on('upgrade', (req, socket, head) => {
-    wss.handleUpgrade(req, socket, head, (ws) => {
-        wss.emit('connection', ws, req);
-    });
+  wss.handleUpgrade(req, socket, head, (ws) => {
+    wss.emit('connection', ws, req);
+  });
 });
 
 wss.on('connection', (ws) => {
-    console.log('New connection');
+  console.log('New connection');
 
-    ws.on('message', (data) => {
-        let msg;
-        try {
-            msg = JSON.parse(data);
-        } catch {
-            console.log('Invalid JSON:', data);
-            return;
+  ws.on('message', (data) => {
+    let msg;
+    try {
+      msg = JSON.parse(data);
+    } catch {
+      console.log('Invalid JSON:', data);
+      return;
+    }
+
+    // Handle registration
+    if (msg.type === 'register') {
+      clients.set(ws, msg.role);
+      console.log(`Client registered as ${msg.role}`);
+      return;
+    }
+
+    // Handle clipboard sync
+    if (msg.type === 'clipboard') {
+      console.log('Clipboard received:', msg.data);
+
+      // Broadcast to everyone else
+      wss.clients.forEach((client) => {
+        if (client.readyState === WebSocket.OPEN && client !== ws) {
+          const role = clients.get(client);
+          if (role === 'clipboard') {
+            client.send(JSON.stringify({ type: 'clipboard', data: msg.data }));
+          } else if (role === 'viewer') {
+            client.send(JSON.stringify({ type: 'log', data: msg.data }));
+          }
         }
+      });
+    }
+  });
 
-        // Handle registration
-        if (msg.type === 'register') {
-            clients.set(ws, msg.role);
-            console.log(`Client registered as ${msg.role}`);
-            return;
-        }
-
-        // Handle clipboard sync
-        if (msg.type === 'clipboard') {
-            console.log('Clipboard received:', msg.data);
-
-            // Broadcast to everyone else
-            wss.clients.forEach((client) => {
-                if (client.readyState === WebSocket.OPEN && client !== ws) {
-                    const role = clients.get(client);
-                    if (role === 'clipboard') {
-                        client.send(JSON.stringify({ type: 'clipboard', data: msg.data }));
-                    } else if (role === 'viewer') {
-                        client.send(JSON.stringify({ type: 'log', data: msg.data }));
-                    }
-                }
-            });
-        }
-    });
-
-    ws.on('close', () => {
-        console.log('Client disconnected');
-        clients.delete(ws);
-    });
+  ws.on('close', () => {
+    console.log('Client disconnected');
+    clients.delete(ws);
+  });
 });
 
 server.listen(PORT, () => {
-    console.log(`Server running at http://localhost:${PORT}`);
+  console.log(`Server running at http://localhost:${PORT}`);
 });
