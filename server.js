@@ -21,7 +21,7 @@ const html = `
 
   <script>
     const logs = document.getElementById('logs');
-    const ws = new WebSocket('ws://' + location.host);
+    const ws = new WebSocket('wss://' + location.host);
 
     ws.onopen = () => {
       ws.send(JSON.stringify({ type: 'register', role: 'viewer' }));
